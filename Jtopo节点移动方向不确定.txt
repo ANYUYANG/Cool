@@ -1,0 +1,2433 @@
+<template>
+  <div class="topoui_content">
+    <div class="svgHead" v-show="true">
+      <ul class="svgHeadItemLst">
+        <li class="svgHeadItem" v-for="(ele,key) in svgToolbar" :key="ele.className" :class="{'active':ele.isActive}" @mousedown="selectToolbar(key)" :title="ele.name">
+          <div class="svgHeadItemImg" :class="ele.className"></div>
+        </li>
+
+        <li title="拓扑添加" class="svgHeadItem">
+          <Dropdown trigger="click" style="height:15px;" @on-click="selectMenu">
+            <div class="svgHeadItemImg toolbar-topoaddne"></div>
+            <DropdownMenu slot="list" style="color:white;">
+              <DropdownItem name="添加网元">添加网元</DropdownItem>
+              <DropdownItem name="添加子网">添加子网</DropdownItem>
+              <DropdownItem name="点击跳转">点击跳转</DropdownItem>
+              <DropdownItem name="导入网元">导入网元</DropdownItem>
+              <DropdownItem name="导出网元">导出网元</DropdownItem>
+              <!-- <DropdownItem name="添加链路">添加链路</DropdownItem> -->
+              <!-- <DropdownItem name="双击网元">双击网元</DropdownItem> -->
+            </DropdownMenu>
+          </Dropdown>
+        </li>
+      </ul>
+      <div class="topo_nav">
+        <Breadcrumb separator=">">
+          <Breadcrumb-item v-for="(item,key) in navpath" :key="item.id">
+            <span style="cursor:pointer" @click="navtosubnet(item.id)">{{item.name}}</span>
+          </Breadcrumb-item>
+        </Breadcrumb>
+      </div>
+    </div>
+    <div class="canvas_content">
+      <canvas :width="canvasWidth" :height="canvasHeight" id="canvas" style="background-color: rgb(238, 238, 238); border: 0px solid rgb(68, 68, 68); cursor: default;marign:0px;display:flex;"></canvas>
+    </div>
+    <v-topoAlarm v-show="topoalarmshow"></v-topoAlarm>
+
+    <!-- <addnet_modal @add_net="add_net" ref="addnet_modal"></addnet_modal> -->
+    <insertnetModal @insertNet="insertNet" ref="insertnetModal"></insertnetModal>
+    <insertdiskModal @insertDisk="insertDisk" ref="insertdiskModal"></insertdiskModal>
+    <deletediskModal @deleteDisk="deleteDisk" ref="deletediskModal"></deletediskModal>
+    <insertsubnetModal @insertSubNet="insertSubNet" ref="insertsubnetModal"></insertsubnetModal>
+    <updatenetModal @updateNet="updateNet" ref="updatenetModal"></updatenetModal>
+    <updatesubnetModal @updateSubNet="updateSubNet" ref="updatesubnetModal"></updatesubnetModal>
+    <updateneparentModal @updateNeParent="updateNeParent" ref="updateneparentModal"></updateneparentModal>
+    <updatesubnetparentModal @updateSubNetParent="updateSubNetParent" ref="updatesubnetparentModal"></updatesubnetparentModal>
+    <updatenodesParentModal @updateNodesParent="updateNodesParent" ref="updatenodesParentModal"></updatenodesParentModal>
+    <insertlinkModal @insertLink="insertLink" ref="insertlinkModal"></insertlinkModal>
+    <updatelinkModal @updateLink="updateLink" ref="updatelinkModal"></updatelinkModal>
+    <channelmonitorModal ref="channelmonitorModal"></channelmonitorModal>
+
+    <div id="PingForm" v-show="pingform">
+      <div id="ping1">{{pinginfo[0]}}</div>
+      <div id="ping2">{{pinginfo[1]}}</div>
+      <div id="ping3">{{pinginfo[2]}}</div>
+      <div id="ping4">{{pinginfo[3]}}</div>
+      <div id="ping5">{{pinginfo[4]}}</div>
+      <img id="ping_img" @click="hidePingform" alt src="../../assets/exit.gif" />
+    </div>
+    <div id="TracertForm" v-show="tracertform">
+      <div class="tracertinfo">{{tracertinfo}}</div>
+      <img id="tracert_img" @click="hideTracertForm" alt src="../../assets/exit.gif" />
+    </div>
+    <!-- <div id="neInfo" v-show="isover">
+      <Card>
+        <p slot="title">{{neInfoType}}</p>
+        <p>名称: {{neInfoName}}</p>
+        <p>型号: {{neInfoTypeName}}</p>
+        <p>状态: {{neInfoState}}</p>
+      </Card>
+    </div>-->
+    <div v-show="nodeMenuVisible">
+      <ul id="neMenu" class="menu">
+        <li class="menuItem" @click="menuShowNeTopo">进入拓扑</li>
+        <li class="menuItem" @click="menUpdateNe">修改网元</li>
+        <li class="menuItem" @click="menDeleteNe">删除网元</li>
+        <li class="menuItem" @click="meninsertdisk">添加机盘</li>
+        <li class="menuItem" @click="mendeletedisk">删除机盘</li>
+        <li class="menuItem" @click="menChannelMonitor">通道监测</li>
+        <li class="menuItem" @click="menuPing">Ping</li>
+        <li class="menuItem" @click="menuTracert">Tracert</li>
+        <li class="menuItem" @click="menupdateNeParentId">移动到...</li>
+        <li class="menuItem" @click="menucurentNeAlarm">当前告警</li>
+      </ul>
+    </div>
+    <div v-show="nodelistMenuVisible">
+      <ul id="nelistMenu" class="menu">
+        <li class="menuItem" @click="menDeleteNeList">删除</li>
+        <li class="menuItem" @click="menupdateNeListParentId">移动到...</li>
+      </ul>
+    </div>
+    <div v-show="subnetMenuVisible">
+      <ul id="subnetMenu" class="menu">
+        <li class="menuItem" @click="menuToSubnetTopo">进入拓扑</li>
+        <li class="menuItem" @click="menUpdateSubnet">修改子网</li>
+        <li class="menuItem" @click="menDeleteSubnet">删除子网</li>
+        <li class="menuItem" @click="menupdateSubNetParentId">移动到...</li>
+      </ul>
+    </div>
+    <div v-show="linkMenuVisible">
+      <ul id="topoLinkMenu" class="menu">
+        <li class="menuItem" @click="menuUpdateTopoLink">修改链路</li>
+        <li class="menuItem" @click="menuDeleteTopoLink">删除链路</li>
+      </ul>
+    </div>
+    <div v-show="topoMenuVisible">
+      <ul id="topoMenu" class="menu">
+        <li class="menuItem" @click="menaddnet">添加网元</li>
+        <li class="menuItem" @click="menaddsubnet">添加子网</li>
+        <li class="menuItem" @click="menaddlink">添加链路</li>
+        <li class="menuItem" @click="mensaveTopo">保存</li>
+        <li class="menuItem" @click="menreturnupper">返回上一层</li>
+        <li class="menuItem" @click="showLinkName">{{showlinkname?"隐藏链路名称":"显示链路名称"}}</li>
+      </ul>
+    </div>
+    <importNetModal ref="importNetModal"></importNetModal>
+  </div>
+</template>
+<script>
+import JTtopo from "jtopo-in-node";
+import { showJTopoToobar, runPrefixMethod } from "@/libs/JTopo/toolbar.js";
+// import topodata from "@/models/topodata";
+import addnet_modal from "@/components/modals/addnet_modal";
+import insertnetModal from "@/components/modals/insertNetModal";
+import insertdiskModal from "@/components/modals/insertDiskModal";
+import deletediskModal from "@/components/modals/deleteDiskModal";
+import insertsubnetModal from "@/components/modals/insertSubNetModal";
+import updatenetModal from "@/components/modals/updateNetModal";
+import updatesubnetModal from "@/components/modals/updateSubNetModal";
+import insertlinkModal from "@/components/modals/insertLinkModal";
+import updatelinkModal from "@/components/modals/updateLinkModal";
+import channelmonitorModal from "@/components/modals/channelMonitorModal";
+import updateneparentModal from "@/components/modals/updateNeParentModal";
+import updatesubnetparentModal from "@/components/modals/updateSubNetParentModal";
+import updatenodesParentModal from "@/components/modals/updateNodesParentModal";
+import vTopoAlarm from "@/components/topocomponent/vTopoAlarm";
+import topofunc from "@/services/topo";
+import { mapGetters, mapActions } from "vuex";
+import topoService from "@/services/topo";
+import nodeService from "@/services/node";
+import channelMonitorService from "@/services/channelMonitor";
+import Bus from "@/store/Bus";
+import sptnmanagersync from "@/services/sptnmanagersync";
+import importNetModal from "@/components/sdwan/importNetModal";
+import alarmjs from "@/services/alarm";
+export default {
+  data () {
+    return {
+      canvasHeight: 327,
+      canvasWidth: 892,
+      bgimg: "@/assets/",
+      svgToolbar: [
+        { name: "默认模式", className: "toolbar-default", isActive: true },
+        {
+          name: "框选模式",
+          className: "toolbar-rectangle_selection",
+          isActive: false
+        },
+        { name: "全屏显示", className: "toolbar-fullScreen", isActive: false },
+        {
+          name: "鼠标放大缩小",
+          className: "toolbar-mouseoutin",
+          isActive: false
+        },
+        { name: "放大", className: "toolbar-zoomin", isActive: false },
+        { name: "缩小", className: "toolbar-zoomout", isActive: false },
+        {
+          name: "居中显示",
+          className: "toolbar-zoomreset",
+          isActive: false
+        },
+        {
+          name: "导出PNG",
+          className: "toolbar-zoomexport",
+          isActive: false
+        },
+        {
+          name: "刷新",
+          className: "toolbar-zoomrefresh",
+          isActive: false
+        },
+        {
+          name: "返回上一层",
+          className: "toolbar-back",
+          isActive: false
+        },
+        // {
+        //   name: "搜索网元",
+        //   className: "toolbar-zoomsearch",
+        //   isActive: false
+        // },
+        {
+          name: "拓扑树",
+          className: "toolbar-topotree",
+          isActive: false
+        },
+        {
+          name: "网元属性",
+          className: "toolbar-topoattr",
+          isActive: false
+        },
+        {
+          name: "告警列表",
+          className: "toolbar-topoalarm",
+          isActive: true
+        }
+      ],
+      stage: null,
+      scene: null,
+      // addsubnet_modal: false,
+      // addlink_modal: false,
+      topoalarmshow: true,
+      nodeMenuVisible: false,
+      subnetMenuVisible: false,
+      linkMenuVisible: false,
+      topoMenuVisible: false,
+      nodelistMenuVisible: false,
+      mouseX: null,
+      mouseY: null,
+      currentnode: [],
+      currentnodelist: [],
+      parentid: 0,
+      parentname: "物理拓扑",
+      necardinfolist: [],
+      taburl: "",
+      tabname: "",
+      pingform: false,
+      pinginfo: [],
+      pingtimeout: null,
+      pingcurrentip: "",
+      tracertform: false,
+      tracertinfo: ``,
+      tracerttimeout: null,
+      showlinkname: true,
+      isover: false,
+      neInfoType: "",
+      neInfoName: "",
+      neInfoTypeName: "",
+      neInfoState: "",
+      alarmLevelName: new Map([[0, "清除告警"], [5, "未知告警"], [10, "提示告警"], [15, "次要告警"], [20, "主要告警"], [25, "紧急告警"]]),
+    };
+  },
+  async mounted () {
+    this.init_stage();
+
+    $("#canvas").bind("contextmenu", function (e) {
+      return false;
+    });
+    let that = this;
+    setTimeout(() => {
+      let _height =
+        $(".canvas_content")
+          .parent()
+          .height() - 188;
+      that.canvasHeight = _height;
+      that.canvasWidth = $(".canvas_content").width();
+    }, 50);
+
+    let alarmInfoList = await alarmjs.asynGetAllAlarmLevelInfo()
+    let alarmInfoArray = [];
+    if (alarmInfoList.output.getalarmlevelinfo) {
+      alarmInfoList.output.getalarmlevelinfo.forEach(i => {
+        alarmInfoArray.push({
+          name: i.name,
+          levelid: i.levelid,
+          color: i.color,
+          nameen: i.nameen,
+          voice: "sound" + i.levelid,
+          levelTime: 7
+        });
+      });
+    }
+    // alert(JSON.stringify(alarmInfoArray))
+    this.updateAlarmlevelInfo(alarmInfoArray);
+
+    Bus.$on('getNeAlarm', (alarmInfo) => {//处理传过来的值
+      // alert(JSON.stringify(alarmInfo))
+      // alert(JSON.stringify(this.alarmLevelInfo))
+      let currentNode = this.stage.find("node");
+      currentNode.forEach(node => {
+        if (node.isnet) {
+          if (node.id == alarmInfo.neid) {
+            //调用李佳的网元告警接口，获得告警
+            let color = this.getAlarmColor(this.alarmLevelInfo.find(i => { return i.levelid == alarmInfo.alarmlevel }));
+            let alpha = this.getAlarmAlpha(this.alarmLevelInfo.find(i => { return i.levelid == alarmInfo.alarmlevel }));
+            alarmjs.selectNeMaxAlarmLevel({ input: { neId: alarmInfo.neid } }).then(data => {
+              if (data.output.maxAlarmLevel != '0') {
+                // 如果还有告警
+                node.alarm = this.alarmLevelName.get(parseInt(data.output.maxAlarmLevel));
+                node.alarmColor = color;
+                node.alarmAlpha = alpha;
+              } else {
+                // 如果没有了就置空
+                node.alarm = null;
+              }
+            }).catch(error => {
+              console.log(error)
+            })
+          }
+        }
+      })
+    })
+  },
+  methods: {
+    ...mapActions("topostore", [
+      "nav_add",
+      "nav_pop",
+      "nav_location",
+      "nav_clear",
+      "nav_reverse",
+      "showtopotree",
+      "showtopoattr"
+    ]),
+    ...mapActions("topo", [
+      "selectTopoData",
+      "updateSelectedObject",
+      "insertNe",
+      "updateNe",
+      "deleteNe",
+      "insertSubnet",
+      "insertSubnet",
+      "deleteSubnet",
+      "insertTopoLink",
+      "updateTopoLink",
+      "deleteTopoLink",
+      "updateAlarmlevelInfo"
+    ]),
+    hidePingform: function () {
+      this.pingform = false;
+      this.pinginfo = [];
+      clearTimeout(this.pingtimeout);
+    },
+    showPingform: function (ip, left, top) {
+      let PingForm = document.querySelector("#PingForm");
+      PingForm.style.left = left;
+      PingForm.style.top = top;
+      this.pingform = true;
+      this.pinginfo = [];
+      this.pingtimes = 0;
+      this.pingcurrentip = ip;
+      this.pingdevice(ip);
+    },
+    pingdevice: function (ip) {
+      topoService
+        .pingDevice({ input: { ip: ip } })
+        .then(data => {
+          if (this.pingcurrentip == ip) {
+            this.pinginfo.push(data.output.result);
+            if (this.pinginfo.length != 5) {
+              this.pingtimeout = setTimeout(() => {
+                this.pingdevice(ip);
+              }, 1000);
+            } else {
+              // setTimeout(() => {
+              //   this.hidePingform();
+              // }, 1000);
+            }
+          }
+        })
+        .catch(error => {
+          alert("pingDevice: " + error);
+        });
+    },
+    hideTracertForm: function () {
+      this.tracertform = false;
+      clearTimeout(this.tracerttimeout);
+    },
+    showTracertForm: function (ip, left, top) {
+      let TracertForm = document.querySelector("#TracertForm");
+      TracertForm.style.left = left;
+      TracertForm.style.top = top;
+      this.tracertform = true;
+      this.tracertinfo = ``;
+      this.tracertDevice("", ip);
+    },
+    tracertDevice: function (tracertid, ip) {
+      topoService
+        .tracertDevice({ input: { tracertId: tracertid, ip: ip } })
+        .then(data => {
+          let traid = data.output.tracertId;
+          this.tracertinfo = data.output.result;
+          if (this.tracertinfo.indexOf("跟踪完成。") == -1) {
+            this.tracerttimeout = setTimeout(() => {
+              this.tracertDevice(traid, ip);
+            }, 3000);
+          } else {
+            //this.hideTracertForm();
+          }
+        })
+        .catch(error => { });
+    },
+    // 初始化Jtopo，展示物理拓扑节点(0即为顶层子网)
+    init_stage: function () {
+      let canvas = document.getElementById("canvas");
+      this.stage = new JTopo.Stage(canvas);
+      //显示鹰眼
+      //stage.eagleEye.visible = true;
+      //显示工具栏
+      //showJTopoToobar(stage);
+      this.createScene(0);
+    },
+    navtosubnet: function (subnetid) {
+      this.nav_location(subnetid);
+      this.createScene(subnetid);
+    },
+    getAlarmColor (info) {  //这个格式{"name":"清除","levelid":0,"color":"rgba(205,49,49,1)","nameen":"CLEAED","voice":"sound0","levelTime":7}
+      let rgba = info.color.substring(0, info.color.lastIndexOf(','))
+      let rgb = rgba.substring(rgba.indexOf("(") + 1, rgba.length);
+      return rgb
+    },
+    getAlarmAlpha (info) {  //这个格式{"name":"清除","levelid":0,"color":"rgba(205,49,49,1)","nameen":"CLEAED","voice":"sound0","levelTime":7}
+      let alpha = info.color.substring(info.color.lastIndexOf(',') + 1, info.color.length)
+      let num = alpha.substring(0, alpha.length - 1);
+      return num
+    },
+    // alarmFlicker () {
+    //   if (this.stop) {
+    //     return
+    //   }
+    //   setTimeout(() => {
+
+    //   }, 1000);
+    // },
+    async createScene (id) {
+      this.stage.clear();
+      this.scene = new JTopo.Scene();
+      this.scene.addEventListener("mouseup", this.showTopoMenu);
+      this.parentid = id;
+      //this.scene.mode = "select";
+      //this.scene.areaSelect = false;
+      /***************************取消拖拽整个图形***********************/
+      //this.scene.translate = false;
+      //改源码，搜索 this.mousedragHandler = function (b) {后添加下面代码
+      //if(this.mode==a.SceneMode.normal)
+      //{
+      //   if (this.currentElement == null || this.currentElement.elementType=="link") return;
+      //}
+      /**********************************************************************/
+
+      this.scene.background = require("@/assets/bg.jpg");
+      this.stage.add(this.scene);
+      let alarmParam = { input: { subnetId: id } }
+      let neListAlarm = await alarmjs.asynselectNesMaxAlarmLevelBySubnetId(alarmParam)
+      // alert(JSON.stringify(neListAlarm))
+      let param = {
+        input: {
+          parentSubnetId: id
+        }
+      };
+      topoService
+        .selectTopoNodes(param)
+        .then(data => {
+          if (data.output.nes != null) {
+            data.output.nes.forEach(node => {
+              this.topo_addne(node);
+            });
+          }
+          if (data.output.subnets != null) {
+            data.output.subnets.forEach(subnet => {
+              this.topo_addsubnet(subnet);
+            });
+          }
+          if (data.output.topolinks != null) {
+            data.output.topolinks.forEach(link => {
+              this.topo_addlink(link);
+            });
+          }
+          let currentNode = this.stage.find("node");
+          currentNode.forEach(node => {
+            if (node.isnet && neListAlarm.output.neMaxAlarmLevels) {
+              neListAlarm.output.neMaxAlarmLevels.forEach(alarmlev => {
+                if (alarmlev.neId == node.id) {
+                  // alert(alarmlev.maxAlarmLevel)
+                  // alert(JSON.stringify(this.alarmLevelInfo))
+                  // alert(JSON.stringify(this.alarmLevelInfo.find(i => { return i.levelid == parseInt(alarmlev.maxAlarmLevel) })))
+                  let color = this.getAlarmColor(this.alarmLevelInfo.find(i => { return i.levelid == parseInt(alarmlev.maxAlarmLevel) }));
+                  let alpha = this.getAlarmAlpha(this.alarmLevelInfo.find(i => { return i.levelid == parseInt(alarmlev.maxAlarmLevel) }));
+                  if (alarmlev.maxAlarmLevel != '0') {
+                    node.alarm = this.alarmLevelName.get(parseInt(alarmlev.maxAlarmLevel))
+                    node.alarmColor = color;
+                    node.alarmAlpha = alpha
+                  } else {
+                    node.alarm = null
+                  }
+                }
+              })
+            }
+          })
+        })
+        .catch(error => {
+          // console.log(error);
+          alert("createScene,selectTopoNodes: " + error);
+        });
+    },
+    createNodeScene: function () {
+      this.stage.clear();
+      this.scene = new JTopo.Scene();
+      this.scene.background = require("@/assets/bg.jpg");
+      this.stage.add(this.scene);
+    },
+    showTopoMenu (event) {
+      if (event.button === 2) {
+        // 右键
+        if (
+          event.scene.currentElement === null ||
+          !event.scene.currentElement
+        ) {
+          this.linkMenuVisible = false;
+          this.nodeMenuVisible = false; // 显示模态窗口，跳出自定义菜单栏
+          this.subnetMenuVisible = false;
+          this.nodelistMenuVisible = false;
+          this.topoMenuVisible = true;
+          let menu = document.querySelector("#topoMenu");
+          menu.style.left = event.clientX - 120 + "px";
+          menu.style.top = event.clientY - 50 + "px";
+          this.mouseX = event.layerX;
+          this.mouseY = event.layerY;
+          document.addEventListener("click", this.noshowTopoMenu); // 给整个document添加监听鼠标事件，点击任何位置关掉菜单
+        } else {
+          this.topoMenuVisible = false;
+        }
+      }
+    },
+    noshowTopoMenu () {
+      // 取消鼠标监听事件 菜单栏
+      this.topoMenuVisible = false;
+      document.removeEventListener("click", this.noshowTopoMenu);
+    },
+    showNodeMenu (event) {
+      if (event.button === 2) {
+        // 右键
+        this.currentnodelist = event.scene.selectedElements;
+        if (this.currentnodelist.length == 1) {
+          this.linkMenuVisible = false;
+          this.topoMenuVisible = false;
+          this.subnetMenuVisible = false;
+          this.nodelistMenuVisible = false;
+          this.nodeMenuVisible = true; // 显示模态窗口，跳出自定义菜单栏
+          this.currentnode = event.scene.currentElement;
+          let menu = document.querySelector("#neMenu");
+          menu.style.left = event.clientX - 120 + "px";
+          menu.style.top = event.clientY - 50 + "px";
+          document.addEventListener("click", this.noshowNodeMenu); // 给整个document添加监听鼠标事件，点击任何位置关掉菜单
+        } else if (this.currentnodelist.length > 1) {
+          this.linkMenuVisible = false;
+          this.topoMenuVisible = false;
+          this.subnetMenuVisible = false;
+          this.nodeMenuVisible = false;
+          this.nodelistMenuVisible = true;
+          let menu = document.querySelector("#nelistMenu");
+          menu.style.left = event.clientX - 120 + "px";
+          menu.style.top = event.clientY - 50 + "px";
+          document.addEventListener("click", this.noshowNodeListMenu); // 给整个document添加监听鼠标事件，点击任何位置关掉菜单
+        }
+      } else if (event.button === 0) {
+        // 左键){
+        this.currentnode = event.scene.currentElement;
+        this.$emit(
+          "updateattr",
+          "click",
+          this.currentnode,
+          this.parentname,
+          ""
+        );
+      }
+    },
+    showNodeInfo (event) {
+      this.neInfoType = event.target.corpName;
+      this.neInfoName = event.target.text;
+      this.neInfoTypeName = event.target.typeName;
+      this.neInfoState = event.target.state == 0 ? "离线" : "在线";
+      let neInfo = document.querySelector("#neInfo");
+      neInfo.style.left = event.clientX - 120 + "px";
+      neInfo.style.top = event.clientY - 50 + "px";
+      this.isover = true;
+      // document.addEventListener("click", this.unshowNodeInfo);
+    },
+    unshowNodeInfo (event) {
+      this.isover = false;
+      // document.removeEventListener("click", this.unshowNodeInfo);
+    },
+    noshowNodeMenu () {
+      // 取消鼠标监听事件 菜单栏
+      this.nodeMenuVisible = false;
+      document.removeEventListener("click", this.noshowNodeMenu);
+    },
+    noshowNodeListMenu () {
+      // 取消鼠标监听事件 菜单栏
+      this.nodelistMenuVisible = false;
+      document.removeEventListener("click", this.noshowNodeListMenu);
+    },
+    showSubNetMenu (event) {
+      if (event.button === 2) {
+        // 右键
+        this.currentnodelist = event.scene.selectedElements;
+        if (this.currentnodelist.length == 1) {
+          this.linkMenuVisible = false;
+          this.topoMenuVisible = false;
+          this.subnetMenuVisible = true;
+          this.nodelistMenuVisible = false;
+          this.nodeMenuVisible = false; // 显示模态窗口，跳出自定义菜单栏
+          this.currentnode = event.scene.currentElement;
+          let menu = document.querySelector("#subnetMenu");
+          menu.style.left = event.clientX - 120 + "px";
+          menu.style.top = event.clientY - 50 + "px";
+          document.addEventListener("click", this.noshowSubNetMenu); // 给整个document添加监听鼠标事件，点击任何位置关掉菜单
+        } else if (this.currentnodelist.length > 1) {
+          this.linkMenuVisible = false;
+          this.topoMenuVisible = false;
+          this.subnetMenuVisible = false;
+          this.nodeMenuVisible = false;
+          this.nodelistMenuVisible = true;
+          let menu = document.querySelector("#nelistMenu");
+          menu.style.left = event.clientX - 120 + "px";
+          menu.style.top = event.clientY - 50 + "px";
+          document.addEventListener("click", this.noshowNodeListMenu); // 给整个document添加监听鼠标事件，点击任何位置关掉菜单
+        }
+      } else if (event.button === 0) {
+        // 左键){
+        this.currentnode = event.scene.currentElement;
+        let subnettypeList = [
+          { value: "101", label: "单设备型" },
+          { value: "102", label: "线型" },
+          { value: "103", label: "星型" },
+          { value: "104", label: "环型" },
+          { value: "105", label: "网孔型" },
+          { value: "106", label: "混合结构型" },
+          { value: "202", label: "省" },
+          { value: "203", label: "城市" },
+          { value: "204", label: "县区(市)" },
+          { value: "205", label: "小区" },
+          { value: "206", label: "机房" },
+          { value: "301", label: "服务厅" },
+          { value: "302", label: "学校" },
+          { value: "303", label: "银行" },
+          { value: "304", label: "医院" }
+        ];
+        let type = "";
+        subnettypeList.forEach(subnettype => {
+          if (subnettype.value === this.currentnode.typeId.toString()) {
+            type = subnettype.label;
+          }
+        });
+        this.$emit(
+          "updateattr",
+          "click",
+          this.currentnode,
+          this.parentname,
+          type
+        );
+      }
+    },
+    noshowSubNetMenu () {
+      // 取消鼠标监听事件 菜单栏
+      this.subnetMenuVisible = false;
+      document.removeEventListener("click", this.noshowSubNetMenu);
+    },
+    showLinkMenu (event) {
+      if (event.button === 2) {
+        // 右键
+        this.linkMenuVisible = true;
+        this.topoMenuVisible = false;
+        this.subnetMenuVisible = false;
+        this.nodelistMenuVisible = false;
+        this.nodeMenuVisible = false; // 显示模态窗口，跳出自定义菜单栏
+        this.currentnode = event.scene.currentElement;
+        let menu = document.querySelector("#topoLinkMenu");
+        menu.style.left = event.clientX - 120 + "px";
+        menu.style.top = event.clientY - 50 + "px";
+        document.addEventListener("click", this.noshowLinkMenu); // 给整个document添加监听鼠标事件，点击任何位置关掉菜单
+      }
+    },
+    noshowLinkMenu () {
+      // 取消鼠标监听事件 菜单栏
+      this.linkMenuVisible = false;
+      document.removeEventListener("click", this.noshowLinkMenu);
+    },
+    topo_addsubnet: function (subnet) {
+      let new_subnet = new JTopo.Node(subnet.name);
+      //子网属性
+      new_subnet.id = subnet.id;
+      new_subnet.isnet = false;
+      new_subnet.guid = subnet.guid;
+      new_subnet.typeId = subnet.typeId;
+      new_subnet.typeCategoryId = subnet.typeCategoryId;
+      new_subnet.positionX = subnet.positionX;
+      new_subnet.positionY = subnet.positionY;
+      new_subnet.remark = subnet.remark;
+      new_subnet.parentSubnetId = subnet.parentSubnetId;
+      new_subnet.subnetPath = subnet.subnetPath;
+      new_subnet.createUserId = subnet.createUserId;
+      new_subnet.username = subnet.username;
+      new_subnet.gmtCreate = subnet.gmtCreate;
+      new_subnet.gmtModified = subnet.gmtModified;
+      new_subnet.fontColor = "#333";
+      if (new_subnet.typeId == 101) {
+        new_subnet.setImage(require("@/assets/单设备型.png"), true);
+      } else if (new_subnet.typeId == 102) {
+        new_subnet.setImage(require("@/assets/线型.png"), true);
+      } else if (new_subnet.typeId == 103) {
+        new_subnet.setImage(require("@/assets/星型.png"), true);
+      } else if (new_subnet.typeId == 104) {
+        new_subnet.setImage(require("@/assets/环型.png"), true);
+      } else if (new_subnet.typeId == 105) {
+        new_subnet.setImage(require("@/assets/网孔型.png"), true);
+      } else if (new_subnet.typeId == 106) {
+        new_subnet.setImage(require("@/assets/混合型.png"), true);
+      } else if (new_subnet.typeId == 202) {
+        new_subnet.setImage(require("@/assets/province.png"), true);
+      } else if (new_subnet.typeId == 203) {
+        new_subnet.setImage(require("@/assets/city.png"), true);
+      } else if (new_subnet.typeId == 204) {
+        new_subnet.setImage(require("@/assets/county.png"), true);
+      } else if (new_subnet.typeId == 205) {
+        new_subnet.setImage(require("@/assets/area.png"), true);
+      } else if (new_subnet.typeId == 206) {
+        new_subnet.setImage(require("@/assets/Computerroom.png"), true);
+      } else if (new_subnet.typeId == 301) {
+        new_subnet.setImage(require("@/assets/Servicehall.png"), true);
+      } else if (new_subnet.typeId == 302) {
+        new_subnet.setImage(require("@/assets/school.png"), true);
+      } else if (new_subnet.typeId == 303) {
+        new_subnet.setImage(require("@/assets/qiye.png"), true);
+      } else if (new_subnet.typeId == 304) {
+        new_subnet.setImage(require("@/assets/Hospital.png"), true);
+      } else if (new_subnet.typeId == 401) {
+        new_subnet.setImage(require("@/assets/Hub-Spoke.png"), true);
+      } else if (new_subnet.typeId == 402) {
+        new_subnet.setImage(require("@/assets/Full-Mesh.png"), true);
+      }else {
+        new_subnet.setImage(require("@/assets/单设备型.png"), true);
+      }
+      new_subnet.setLocation(subnet.positionX, subnet.positionY);
+      new_subnet.dbclick(this.subnet_dbclick);
+      new_subnet.addEventListener("mouseup", this.showSubNetMenu);
+      this.scene.add(new_subnet);
+      return new_subnet;
+    },
+    subnet_dbclick: function (event) {
+      this.nav_add({ id: event.target.id, name: event.target.text });
+      this.createScene(event.target.id);
+      this.parentname = event.target.text;
+    },
+    topo_addne: function (ne) {
+      let new_ne = new JTopo.Node(ne.name);
+      //网元属性
+      new_ne.zIndex = 1;
+      new_ne.id = ne.id;
+      new_ne.isnet = true;
+      new_ne.guid = ne.guid;
+      new_ne.typeName = ne.typeName;
+      new_ne.typeCategoryId = ne.typeCategoryId;
+      new_ne.corpName = ne.corpName;
+      new_ne.ip = ne.ip;
+      new_ne.mac = ne.mac;
+      new_ne.mask = ne.mask;
+      new_ne.defaultGateway = ne.defaultGateway;
+      new_ne.typeId = ne.typeId;
+      new_ne.hardwareVersion = ne.hardwareVersion;
+      new_ne.softwareVersion = ne.softwareVersion;
+      new_ne.serialNumber = ne.serialNumber;
+      new_ne.virtual = ne.virtual;
+      new_ne.remark = ne.remark;
+      new_ne.protocol = ne.protocol;
+      new_ne.parentSubnetId = ne.parentSubnetId;
+      new_ne.subnetPath = ne.subnetPath;
+      new_ne.state = ne.state;
+      new_ne.createUserId = ne.createUserId;
+      new_ne.username = ne.username;
+      new_ne.gmtSync = ne.gmtSync;
+      new_ne.gmtCreate = ne.gmtCreate;
+      new_ne.gmtModified = ne.gmtModified;
+      new_ne.positionX = ne.positionX;
+      new_ne.positionY = ne.positionY;
+      new_ne.fontColor = "#333";
+      // new_ne.alarm = '11111'
+      // new_ne.alarmColor = '255,255,0'
+      // new_ne.alarmAlpha = 0.9
+      //3001_1
+      // new_ne.setImage(require("@/assets/"+e.typeId+"_"+ne.state+".png"), true);
+
+      let a = new JTopo.CircleNode(ne.name);
+      a.radius = 5;
+      a.borderRadius = 5;
+      a.fillColor = '56,208,21';
+      a.setLocation(new_ne.positionX+38, new_ne.positionY+3);
+      a.zIndex = 11;
+      a.dragable = false;
+      a.text = false;
+      this.scene.add(a);
+      new_ne.mousedrag(function(event){
+        a.setLocation(event.screenX-120, event.screenY-230)
+      });
+
+
+        new_ne.setImage(require("@/assets/测试.png"), true);
+      new_ne.setLocation(ne.positionX, ne.positionY);
+      new_ne.dbclick(this.ne_dbclick);
+      new_ne.addEventListener("mouseup", this.showNodeMenu);
+      // new_ne.addEventListener("mouseover", this.showNodeInfo);  //鼠标放上去事件
+      // new_ne.addEventListener("mouseout", this.unshowNodeInfo);  //鼠标移开事件
+      // new_ne.font = 'bold 16px 微软雅黑';
+      // new_ne.mouseover(function () {
+      //  this.isover = true
+      //   // this.text.font='bold 16px 微软雅黑';
+      // });
+      // new_ne.mouseout(function () {
+      //   this.text = null;
+      // });
+      this.scene.add(new_ne);
+      return new_ne;
+    },
+    ne_dbclick: function (event) {
+      // this.nav_add({ id: event.target.id, name: event.target.text });
+      // this.createNodeScene();
+      //'http://192.168.2.95/login.html', '192.168.2.95'
+      // this.taburl = "http://" + event.target.ip + "/login.html";\
+
+      let relIP = "";
+      if (event.target.typeId == 3001) {
+        let param = {
+          input: {
+            neId: parseInt(event.target.id)
+          }
+        };
+        topoService
+          .selectNe(param)
+          .then(data => {
+            relIP = data.output.ne.ip;
+            this.tabname = event.target.text;
+            this.taburl = "./static/TaiYiDeviceLogin.html?deviceip=" + relIP; //event.target.ip;
+            let key = event.target.ip.replace(/\./g, "0");
+            Bus.$emit(
+              "addmainTabIframe",
+              this.taburl,
+              this.tabname,
+              parseInt(key)
+            ); //提交改变后的值
+          })
+          .catch(error => {
+            alert("ne_dbclick,selectNe: " + error);
+          });
+      } else if (event.target.typeId == 3002) {
+        if (this.proxyServerip == "0") {
+          this.tabname = event.target.text;
+          let key = event.target.ip.replace(/\./g, "0");
+          this.taburl = {
+            key: parseInt(key),
+            iconurl: "",
+            name: this.tabname,
+            text: this.tabname,
+            closable: true,
+            componentname: "sdwanNewManager",
+            show: true,
+            haschild: false,
+            children: [],
+            neinfo: { id: event.target.id, ip: event.target.ip }
+          };
+          Bus.$emit(
+            "addmainTabIframe",
+            this.taburl,
+            this.tabname,
+            parseInt(key)
+          );
+        } else {
+          let param = {
+            input: {
+              neId: parseInt(event.target.id)
+            }
+          };
+          topoService
+            .selectNe(param)
+            .then(data => {
+              relIP = data.output.ne.ip;
+              this.tabname = event.target.text;
+              this.taburl = "./static/cncrDeviceLogin.html?deviceip=" + relIP; //event.target.ip;
+              let key = event.target.ip.replace(/\./g, "0");
+              Bus.$emit(
+                "addmainTabIframe",
+                this.taburl,
+                this.tabname,
+                parseInt(key)
+              ); //提交改变后的值
+            })
+            .catch(error => {
+              alert("ne_dbclick,selectNe: " + error);
+            });
+        }
+      } else if (
+        event.target.typeId == 2001 ||
+        event.target.typeId == 2002 ||
+        event.target.typeId == 2003 ||
+        event.target.typeId == 2004 ||
+        event.target.typeId == 2005 ||
+        event.target.typeId == 2006
+      ) {
+        this.tabname = event.target.text;
+        let key = event.target.ip.replace(/\./g, "0");
+        this.taburl = {
+          key: parseInt(key),
+          iconurl: "",
+          name: this.tabname,
+          text: this.tabname,
+          closable: true,
+          componentname: "ipranManager",
+          show: true,
+          haschild: false,
+          children: [],
+          neinfo: {
+            id: event.target.id,
+            ip: event.target.ip,
+            type: event.target.typeId
+          }
+        };
+        Bus.$emit("addmainTabIframe", this.taburl, this.tabname, parseInt(key));
+      } else {
+        this.tabname = event.target.text;
+        let key = event.target.ip.replace(/\./g, "0");
+        this.taburl = {
+          key: parseInt(key),
+          iconurl: "",
+          name: this.tabname,
+          text: this.tabname,
+          closable: true,
+          componentname: "sptnManager",
+          show: true,
+          haschild: false,
+          children: [],
+          neinfo: {
+            id: event.target.id,
+            ip: event.target.ip,
+            type: event.target.typeId
+          }
+        };
+        Bus.$emit("addmainTabIframe", this.taburl, this.tabname, parseInt(key));
+      }
+    },
+    topo_addlink: function (link) {
+      let nodea;
+      let nodez;
+      let new_link;
+      let currentNode = this.stage.find("node");
+      currentNode.forEach(node => {
+        if (node.isnet) {
+          if (node.id == link.neIdA) {
+            nodea = node;
+          }
+          if (node.id == link.neIdZ) {
+            nodez = node;
+          }
+        }
+      });
+      if (!nodez || !nodea) return;
+      if (this.showlinkname) {
+        new_link = new JTopo.Link(nodea, nodez, link.name);
+      } else {
+        new_link = new JTopo.Link(nodea, nodez);
+      }
+      if (link.virtual) {
+        new_link.dashedPattern = 5;
+      }
+      new_link.direction = "vertical";
+      new_link.id = link.id;
+      new_link.portIdA = link.portIdA;
+      new_link.portNameA = link.portNameA;
+      new_link.neIdA = link.neIdA;
+      new_link.neNameA = link.neNameA;
+      new_link.portIdZ = link.portIdZ;
+      new_link.portNameZ = link.portNameZ;
+      new_link.neIdZ = link.neIdZ;
+      new_link.neNameZ = link.neNameZ;
+      new_link.parentSubnetId = link.parentSubnetId;
+      new_link.subnetPath = link.subnetPath;
+      new_link.uniDirectional = link.uniDirectional;
+      new_link.virtual = link.virtual;
+      new_link.remark = link.remark;
+      new_link.createUserId = link.createUserId;
+      new_link.username = link.username;
+      new_link.gmtCreate = link.gmtCreate;
+      new_link.gmtModified = link.gmtModified;
+      new_link.fontColor = "#333";
+      new_link.addEventListener("mouseup", this.showLinkMenu);
+      this.scene.add(new_link);
+      return new_link;
+    },
+    // add_net: function (name, x, y) {
+    //   let newnode = { name: name, x: x, y: y, img: "net.png" };
+    //   this.topo_addnode(newnode);
+    // },
+    selectMenu (name) {
+      if (name == "添加网元") {
+        this.$refs.insertnetModal.insertnetModal = true;
+        this.$refs.insertnetModal.netTitle = "添加";
+        this.$refs.insertnetModal.selectabled = false;
+        this.$refs.insertnetModal.net.netname = "";
+        this.$refs.insertnetModal.net.ip = "";
+        this.$refs.insertnetModal.net.macadress = "";
+        this.$refs.insertnetModal.net.mask = "";
+        this.$refs.insertnetModal.net.gateway = "";
+        this.$refs.insertnetModal.net.serialNumber = "";
+        this.$refs.insertnetModal.net.mark = "";
+        this.$refs.insertnetModal.net.netid = "";
+        this.$refs.insertnetModal.nodetype = "1";
+        this.$refs.insertnetModal.nodemodelList = [
+          { value: "1000", label: "OMC" }
+        ];
+        this.mouseX = 300;
+        this.mouseY = 300;
+      } else if (name == "添加子网") {
+        this.$refs.insertsubnetModal.insertsubnetModal = true;
+        this.$refs.insertsubnetModal.subnet.subnetname = "";
+        this.$refs.insertsubnetModal.subnet.mark = "";
+        this.mouseX = 400;
+        this.mouseY = 300;
+      } else if (name == "添加链路") {
+        this.$refs.insertlinkModal.insertlinkModal = true;
+      } else if (name == "双击网元") {
+        // Bus.$emit('addmainTabIframe', 'http://192.168.2.95/login.html', '192.168.2.95', parseInt('192016802095'));
+        // let nes = {"id":7,"name":"ne44","typeId":1,"positionX":300,"positionY":300,"parentSubnetId":10,"ipAddress":"192.168.2.2","mask":null,"mac":null,"location":null,"serialNumber":null,"remark":null,"status":0,"protocol":1,"protocolPort":161,"snmpReadCommunity":"public","snmpWriteCommunity":"public","username":"admin","password":"admin","gmtCreate":"2019-01-01T01:12:12.000+0000","gmtModified":"2019-01-01T01:12:12.000+0000","categoryId":1,"categoryName":"SDWAN","typeName":"防火墙1","typePicture":"fw.png","manufacturerId":2,"manufacturerName":"太一"}
+        // this.$emit("updateattr", "dbclick", "", "", "");
+        this.tabname = "192.168.93.188";
+        this.taburl = "./static/cncrDeviceLogin.html?deviceip=192.168.93.188";
+        // let key = event.target.ip.replace(/\./g, "0");
+        Bus.$emit(
+          "addmainTabIframe",
+          this.taburl,
+          this.tabname,
+          19201680930188
+        ); //提交改变后的值
+      } else if (name == "点击跳转") {
+        let taburl = {
+          key: 401,
+          iconurl: "",
+          name: "当前告警浏览",
+          text: "当前告警浏览",
+          closable: true,
+          componentname: "currentalarm",
+          show: true,
+          haschild: false,
+          children: [],
+          neinfo: { AlarmLevel: "未知", AlarmName: "网元报警" }
+        };
+        Bus.$emit("addmainTabIframe", taburl, "当前告警浏览", 401); //对应接收的三个属性
+        //Bus.$emit('add',{"key":"401","name":"网元1","id":"004"});//加标签页
+      } else if (name == "导入网元") {
+        this.$refs.importNetModal.importNet = true;
+      } else if (name == "导出网元") {
+        let taburl = {
+          key: 602,
+          iconurl: "",
+          name: "网元列表",
+          text: "网元列表",
+          closable: true,
+          componentname: "neListReport",
+          show: true,
+          haschild: false,
+          children: [],
+          neinfo: { AlarmLevel: "未知", AlarmName: "网元报警" }
+        };
+        Bus.$emit("addmainTabIframe", taburl, "网元列表", 602);
+      }
+    },
+    // 打开添加网元的弹窗并把值赋空
+    menaddnet: function () {
+      this.$refs.insertnetModal.insertnetModal = true;
+      this.$refs.insertnetModal.netTitle = "添加";
+      this.$refs.insertnetModal.selectabled = false;
+      this.$refs.insertnetModal.net.netname = "";
+      this.$refs.insertnetModal.net.ip = "";
+      this.$refs.insertnetModal.net.macadress = "";
+      this.$refs.insertnetModal.net.mask = "";
+      this.$refs.insertnetModal.net.gateway = "";
+      this.$refs.insertnetModal.net.serialNumber = "";
+      this.$refs.insertnetModal.net.mark = "";
+      this.$refs.insertnetModal.net.netid = "";
+      this.$refs.insertnetModal.nodetype = "1";
+      this.$refs.insertnetModal.nodemodelList = [
+        { value: "1000", label: "OMC" }
+      ];
+    },
+
+    // 随机获得guid的值
+    getguid: function () {
+      return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (
+        c
+      ) {
+        let r = (Math.random() * 16) | 0,
+          v = c == "x" ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+      });
+    },
+    // 添加网元弹窗按下确定按钮触发的方法
+    insertNet: function (
+      title,
+      name,
+      ip,
+      mac,
+      mask,
+      gateway,
+      sernum,
+      mark,
+      nodemodelvalue,
+      netid,
+      protocolvalue
+    ) {
+      if (title == "添加") {
+        let newnode = {
+          guid: this.getguid(), //netid,
+          name: name,
+          typeId: parseInt(nodemodelvalue),
+          positionX: this.mouseX,
+          positionY: this.mouseY,
+          ip: ip,
+          mac: mac,
+          mask: mask,
+          defaultGateway: gateway,
+          serialNumber: sernum,
+          remark: mark,
+          protocol: protocolvalue,
+          parentSubnetId: this.parentid
+        };
+        if (newnode.typeId == 3001) {
+          newnode.protocol =
+            "{ 'type': 1, 'port': 443, 'username': 'admin', 'password': 'fw.admin' }";
+        }
+        let param = {
+          input: {
+            ne: newnode
+          }
+        };
+        topoService
+          .insertTopoNodes(param)
+          .then(data => {
+            this.topo_addne(data.output.ne);
+            this.$emit("updateattr", "dbclick", "", "", "");
+          })
+          .catch(error => {
+            // console.log(error);
+            alert("insertNet,insertTopoNodes: " + error);
+          });
+      } else if (title == "修改") {
+        let modifynode = {
+          id: this.currentnode.id,
+          name: name,
+          ip: ip,
+          mac: mac,
+          mask: mask,
+          defaultGateway: gateway,
+          hardwareVersion: "1.2.4",
+          softwareVersion: "2.3.2",
+          serialNumber: sernum,
+          remark: mark,
+          protocol: ""
+        };
+        if (this.currentnode.typeId == 3001) {
+          modifynode.protocol =
+            "{ 'type': 1, 'port': 443, 'username': 'admin', 'password': 'fw.admin' }";
+        }
+        let param = {
+          input: {
+            ne: modifynode
+          }
+        };
+        topoService
+          .updateTopoNode(param)
+          .then(data => {
+            // this.scene.remove(this.currentnode);
+            // this.topo_addne(data.output.ne);
+            this.$emit("updateattr", "dbclick", "", "", ""); //刷新节点树
+            this.createScene(this.parentid);
+          })
+          .catch(error => {
+            console.log(error);
+            alert("insertNet,updateTopoNode: " + error);
+          });
+      }
+    },
+    // 添加子网
+    menaddsubnet: function () {
+      this.$refs.insertsubnetModal.insertsubnetModal = true;
+      this.$refs.insertsubnetModal.subnet.subnetname = "";
+      this.$refs.insertsubnetModal.subnet.mark = "";
+      this.$refs.insertsubnetModal.selectSubnetTypeTree()
+    },
+    insertSubNet: function (name, subnettypevalue, mark) {
+      let guid = this.getguid();
+      let newsubnet = {
+        guid: guid,
+        name: name,
+        typeId: parseInt(subnettypevalue),
+        positionX: this.mouseX,
+        positionY: this.mouseY,
+        remark: mark,
+        parentSubnetId: this.parentid
+      };
+      let param = {
+        input: {
+          subnet: newsubnet
+        }
+      };
+      topoService
+        .insertTopoSubNets(param)
+        .then(data => {
+          this.topo_addsubnet(data.output.subnet);
+          this.$emit("updateattr", "dbclick", "", "", "");
+        })
+        .catch(error => {
+          console.log(error);
+          alert("insertSubNet,insertTopoSubNets: " + error);
+        });
+    },
+    // 添加链路
+    menaddlink: function () {
+      this.$refs.insertlinkModal.insertlinkModal = true;
+      this.$refs.insertlinkModal.title = "添加";
+      this.$refs.insertlinkModal.updateLink = false;
+      let newnodelist = [];
+      let currentNode = this.stage.find("node");
+      if (currentNode.length > 1) {
+        currentNode.forEach(node => {
+          if (node.isnet) {
+            if (node.text != "127.0.0.1") {
+              let newnode = { value: node.id.toString(), label: node.text };
+              newnodelist.push(newnode);
+            }
+          }
+        });
+      }
+      this.$refs.insertlinkModal.nodeaList = newnodelist;
+      this.$refs.insertlinkModal.nodezList = newnodelist;
+      if (newnodelist.length > 0) {
+        this.$refs.insertlinkModal.nodea = newnodelist[0].value;
+        this.$refs.insertlinkModal.nodeavalue = newnodelist[0].value;
+        let param = {
+          input: {
+            neId: parseInt(newnodelist[0].value)
+          }
+        };
+        let portnameList = [];
+        nodeService
+          .selectNodeSubInfo(param)
+          .then(data => {
+            if (data.output.ports) {
+              data.output.ports.forEach(port => {
+                let portlist = {
+                  value: port.id.toString(),
+                  label: port.name
+                };
+                portnameList.push(portlist);
+              });
+              this.$refs.insertlinkModal.nodeaportList = portnameList;
+              this.$refs.insertlinkModal.nodeaport = portnameList[0].value;
+              this.$refs.insertlinkModal.nodeaportvalue = portnameList[0].value;
+            }
+          })
+          .catch(error => {
+            console.log(error);
+            alert("menaddlink,selectNodeSubInfo: " + error);
+          });
+      }
+
+      if (newnodelist.length > 1) {
+        this.$refs.insertlinkModal.nodez = newnodelist[1].value;
+        this.$refs.insertlinkModal.nodezvalue = newnodelist[1].value;
+        let param = {
+          input: {
+            neId: parseInt(newnodelist[1].value)
+          }
+        };
+        let portnameList = [];
+        nodeService
+          .selectNodeSubInfo(param)
+          .then(data => {
+            if (data.output.ports) {
+              data.output.ports.forEach(port => {
+                let portlist = {
+                  value: port.id.toString(),
+                  label: port.name
+                };
+                portnameList.push(portlist);
+              });
+              this.$refs.insertlinkModal.nodezportList = portnameList;
+              this.$refs.insertlinkModal.nodezport = portnameList[0].value;
+              this.$refs.insertlinkModal.nodezportvalue = portnameList[0].value;
+            }
+          })
+          .catch(error => {
+            console.log(error);
+            alert("menaddlink2,selectNodeSubInfo: " + error);
+          });
+      }
+    },
+    insertLink: function (
+      linkname,
+      nodeavalue,
+      nodeaportvalue,
+      nodezvalue,
+      nodezportvalue,
+      virtuallinkvalue,
+      linkderectionvalue,
+      mark
+    ) {
+      let newlink = {
+        name: linkname,
+        portIdA: parseInt(nodeaportvalue),
+        portIdZ: parseInt(nodezportvalue),
+        uniDirectional: eval(linkderectionvalue),
+        virtual: eval(virtuallinkvalue),
+        remark: mark
+      };
+      let param = {
+        input: {
+          topolink: newlink
+        }
+      };
+      console.log(param);
+      nodeService
+        .insertLink(param)
+        .then(data => {
+          this.topo_addlink(data.output.topolink);
+          console.log(data.output.topolink);
+        })
+        .catch(error => {
+          console.log(error);
+          alert("insertLink,insertLink: " + error);
+        });
+    },
+    // 进入网元
+    menuShowNeTopo: function () {
+      // this.nav_add({ id: event.target.id, name: event.target.text });
+      // this.createNodeScene();
+      if (event.target.typeId == 3001) {
+        this.tabname = event.target.text;
+        this.taburl =
+          "./static/TaiYiDeviceLogin.html?deviceip=" + event.target.ip;
+        let key = event.target.ip.replace(/\./g, "0");
+        Bus.$emit("addmainTabIframe", this.taburl, this.tabname, parseInt(key)); //提交改变后的值
+      } else if (event.target.typeId == 3002) {
+        this.tabname = event.target.text;
+        this.taburl =
+          "./static/cncrDeviceLogin.html?deviceip=" + event.target.ip;
+        let key = event.target.ip.replace(/\./g, "0");
+        Bus.$emit("addmainTabIframe", this.taburl, this.tabname, parseInt(key)); //提交改变后的值
+      }
+    },
+    // 修改网元
+    menUpdateNe: function () {
+      // this.$refs.updatenetModal.updatenetModal = true;
+      // this.$refs.updatenetModal.net.netname = this.currentnode.text;
+      // this.$refs.updatenetModal.net.ip = this.currentnode.ip;
+      // this.$refs.updatenetModal.net.macadress = this.currentnode.mac;
+      // this.$refs.updatenetModal.net.mask = this.currentnode.mask;
+      // this.$refs.updatenetModal.net.gateway = this.currentnode.defaultGateway;
+      // this.$refs.updatenetModal.net.serialNumber = this.currentnode.serialNumber;
+      // this.$refs.updatenetModal.net.mark = this.currentnode.remark;
+      this.$refs.insertnetModal.insertnetModal = true;
+      this.$refs.insertnetModal.netTitle = "修改";
+      this.$refs.insertnetModal.selectabled = true;
+      this.$refs.insertnetModal.net.netname = this.currentnode.text;
+      this.$refs.insertnetModal.net.ip = this.currentnode.ip;
+      this.$refs.insertnetModal.net.macadress = this.currentnode.mac;
+      this.$refs.insertnetModal.net.mask = this.currentnode.mask;
+      this.$refs.insertnetModal.net.gateway = this.currentnode.defaultGateway;
+      this.$refs.insertnetModal.net.serialNumber = this.currentnode.serialNumber;
+      this.$refs.insertnetModal.net.mark = this.currentnode.remark;
+      this.$refs.insertnetModal.net.netid = this.currentnode.guid;
+      this.$refs.insertnetModal.nodemodelList = [
+        { value: "1000", label: "OMC" },
+        { value: "3001", label: "URAN-100A" },
+        { value: "3002", label: "URAN-100B" },
+        {
+          value: "1001",
+          label: "PTN-2100"
+        },
+        {
+          value: "1002",
+          label: "PTN-C900A"
+        },
+        {
+          value: "1003",
+          label: "PTN-C900B"
+        }
+      ];
+      if (this.currentnode.corpName == "初灵") {
+        this.$refs.insertnetModal.corpname = "1";
+      }
+      this.$refs.insertnetModal.nodetype = this.currentnode.typeCategoryId.toString();
+      this.$refs.insertnetModal.nodemodel = this.currentnode.typeId.toString();
+      this.$refs.insertnetModal.nodemodelvalue = this.currentnode.typeId.toString();
+    },
+    updateNet: function (name, ip, mac, mask, gateway, sernum, mark) {
+      let newnode = {
+        id: this.currentnode.id,
+        name: name,
+        ip: ip,
+        mac: mac,
+        mask: mask,
+        defaultGateway: gateway,
+        hardwareVersion: "1.2.4",
+        softwareVersion: "2.3.2",
+        serialNumber: sernum,
+        remark: mark,
+        protocol: "snmp"
+      };
+      let param = {
+        input: {
+          ne: newnode
+        }
+      };
+      topoService
+        .updateTopoNode(param)
+        .then(data => {
+          this.scene.remove(this.currentnode);
+          this.topo_addne(data.output.ne);
+          this.$emit("updateattr", "dbclick", "", "", "");
+        })
+        .catch(error => {
+          console.log(error);
+          alert("updateNet,updateTopoNode: " + error);
+        });
+    },
+    // 删除网元
+    menDeleteNe: function () {
+      let param = {
+        input: {
+          id: this.currentnode.id
+        }
+      };
+      topoService
+        .deleteTopoNodes(param)
+        .then(() => {
+          this.scene.remove(this.currentnode);
+          this.$emit("updateattr", "dbclick", "", "", "");
+        })
+        .catch(error => {
+          console.log(error);
+          alert("menDeleteNe,deleteTopoNodes: " + error);
+        });
+    },
+    // 添加机盘
+    meninsertdisk: function () {
+      this.$refs.insertdiskModal.insertdiskModal = true;
+      let slotparam = {
+        input: {
+          neId: this.currentnode.id
+        }
+      };
+      this.$refs.insertdiskModal.typeid = this.currentnode.typeId.toString();
+      let slotnameList = [];
+      let cardtypeList = [];
+      let typeId = this.currentnode.typeId;
+      nodeService
+        .selectNodeSubInfo(slotparam)
+        .then(data => {
+          if (data.output.slots) {
+            data.output.slots.forEach(slot => {
+              if (slot.state == 0) {
+                let slotlist = {
+                  value: slot.number.toString(),
+                  label: slot.name,
+                  id: slot.id
+                };
+                slotnameList.push(slotlist);
+              }
+            });
+
+            this.$refs.insertdiskModal.slotnameList = slotnameList;
+            this.$refs.insertdiskModal.slotname = slotnameList[0].value;
+            this.$refs.insertdiskModal.slotnamevalue = slotnameList[0].id;
+          }
+        })
+        .catch(error => {
+          console.log(error);
+          alert("meninsertdisk,selectNodeSubInfo: " + error);
+        })
+        .then(response => {
+          let input = {
+            neTypeId: typeId,
+            slotNumber: parseInt(slotnameList[0].value)
+          };
+          let cardparam = {
+            input
+          };
+          let cardlist;
+          nodeService
+            .selectCardTypes(cardparam)
+            .then(data => {
+              data.output.cardTypes.forEach(cardtype => {
+                cardlist = {
+                  value: cardtype.id.toString(),
+                  label: cardtype.name
+                };
+                cardtypeList.push(cardlist);
+              });
+              this.$refs.insertdiskModal.cardtypeList = cardtypeList;
+              this.$refs.insertdiskModal.cardtype = cardtypeList[0].value;
+              this.$refs.insertdiskModal.cardtypevalue = cardtypeList[0].value;
+            })
+            .catch(error => {
+              console.log(error);
+              alert("meninsertdisk,selectCardTypes: " + error);
+            });
+        });
+    },
+    insertDisk: function (name, serialNumber, remark, slotId, typeId) {
+      let newcard = {
+        name: name,
+        serialNumber: serialNumber,
+        remark: remark,
+        slotId: parseInt(slotId),
+        typeId: parseInt(typeId)
+      };
+      let param = {
+        input: {
+          card: newcard
+        }
+      };
+      nodeService
+        .insertCard(param)
+        .then(data => {
+          let necardinfo = { id: this.currentnode.id, card: data.output.card };
+          this.necardinfolist.push(necardinfo);
+        })
+        .catch(error => {
+          console.log(error);
+          alert("insertDisk,insertCard: " + error);
+        });
+    },
+    // 删除机盘
+    mendeletedisk: function () {
+      this.$refs.deletediskModal.deletediskModal = true;
+      let param = {
+        input: {
+          neId: this.currentnode.id
+        }
+      };
+      let cardList = [];
+      nodeService
+        .selectNodeSubInfo(param)
+        .then(data => {
+          data.output.cards.forEach(card => {
+            let cardlist = {
+              value: card.id.toString(),
+              label: card.slotNumber + "-" + card.typeName
+            };
+            cardList.push(cardlist);
+          });
+          this.$refs.deletediskModal.diskList = cardList;
+          this.$refs.deletediskModal.disk = cardList[0].value;
+          this.$refs.deletediskModal.diskvalue = cardList[0].value;
+        })
+        .catch(error => {
+          console.log(error);
+          alert("mendeletedisk,selectNodeSubInfo: " + error);
+        });
+    },
+    deleteDisk: function (id) {
+      let param = {
+        input: {
+          id: parseInt(id)
+        }
+      };
+      nodeService
+        .deleteCard(param)
+        .then(() => { })
+        .catch(error => {
+          console.log(error);
+          alert("deleteDisk,deleteCard: " + error);
+        });
+    },
+    //通道监测
+    menChannelMonitor: function () {
+      //打开弹窗
+      this.$refs.channelmonitorModal.channelmonitorModal = true;
+      //传入当前NE ID
+      let param = {
+        input: {
+          neId: this.currentnode.id
+        }
+      };
+      //let channelmonitorstatusList = [];
+      let channelmonitorstatusList = [];
+      channelMonitorService
+        .getChannelMonitor(param)
+        .then(data => {
+          channelmonitorstatusList = [
+            {
+              connectionType: "openflow",
+              connectionState: data.output.channelmonitorstatus.openflowstatus
+            },
+            {
+              connectionType: "netConf",
+              connectionState: data.output.channelmonitorstatus.netconfstatus
+            }
+          ];
+          //channelmonitorstatusList.push(channelmonitorstatus);
+          this.$refs.channelmonitorModal.channelmonitorstatusList = channelmonitorstatusList;
+        })
+        .catch(error => {
+          console.log(error);
+          alert("menChannelMonitor,getChannelMonitor: " + error);
+        });
+    },
+    //ping
+    menuPing: function () {
+      let ip = this.currentnode.ip;
+
+      let menu = document.querySelector("#neMenu");
+      this.showPingform(ip, menu.style.left, menu.style.top);
+    },
+    //trancert设备
+    menuTracert: function () {
+      let ip = this.currentnode.ip;
+
+      let menu = document.querySelector("#neMenu");
+      this.showTracertForm(ip, menu.style.left, menu.style.top);
+    },
+    // 删除多个节点
+    menDeleteNeList: function () {
+      this.currentnodelist.forEach(node => {
+        if (node.isnet) {
+          let param = {
+            input: {
+              id: node.id
+            }
+          };
+          topoService
+            .deleteTopoNodes(param)
+            .then(() => {
+              this.scene.remove(node);
+              this.$emit("updateattr", "dbclick", "", "", "");
+            })
+            .catch(error => {
+              console.log(error);
+              alert("menDeleteNeList,deleteTopoNodes: " + error);
+            });
+        } else if (!node.isnet) {
+          let param = {
+            input: {
+              id: node.id
+            }
+          };
+          topoService
+            .deleteTopoSubNets(param)
+            .then(() => {
+              this.scene.remove(node);
+              this.$emit("updateattr", "dbclick", "", "", "");
+            })
+            .catch(error => {
+              console.log(error);
+              alert("menDeleteNeList,deleteTopoSubNets: " + error);
+            });
+        }
+      });
+    },
+    // 移动网元
+    menupdateNeParentId: function () {
+      this.$refs.updateneparentModal.updateneparentModal = true;
+      let subnettypeList = [{ value: "0", label: "物理拓扑" }];
+      let currentNode = this.stage.find("node");
+      currentNode.forEach(node => {
+        if (!node.isnet) {
+          let newnode = { value: node.id.toString(), label: node.text };
+          subnettypeList.push(newnode);
+        }
+      });
+      this.$refs.updateneparentModal.nodeinfoList = subnettypeList;
+    },
+    // 网元当前告警
+    menucurentNeAlarm:function(){
+      Bus.$emit("removeTab", 401);
+      let taburl = {
+          key: 401,
+          iconurl: "",
+          name: "当前告警浏览",
+          text: "当前告警浏览",
+          closable: true,
+          componentname: "currentalarm",
+          show: true,
+          haschild: false,
+          children: [],
+          neinfo: {node:this.currentnode}
+        };
+        setTimeout(() => {
+                    Bus.$emit("addmainTabIframe", taburl, "当前告警浏览", 401);
+                  }, 100);
+        
+    },
+    updateNeParent: function (subnettypevalue) {
+      let newnode = {
+        id: this.currentnode.id,
+        parentSubnetId: parseInt(subnettypevalue)
+      };
+      let param = {
+        input: {
+          ne: newnode
+        }
+      };
+      topoService
+        .updateTopoNodeParentId(param)
+        .then(data => {
+          this.scene.remove(this.currentnode);
+          this.$emit("updateattr", "dbclick", "", "", "");
+        })
+        .catch(error => {
+          console.log(error);
+          alert("updateNeParent,updateTopoNodeParentId: " + error);
+        });
+    },
+    // 进入子网
+    menuToSubnetTopo: function () {
+      this.nav_add({ id: this.currentnode.id, name: this.currentnode.text });
+      this.createScene(this.currentnode.id);
+    },
+    // 修改子网
+    menUpdateSubnet: function () {
+      this.$refs.updatesubnetModal.subnet.subnetname = this.currentnode.text;
+      this.$refs.updatesubnetModal.subnet.mark = this.currentnode.remark;
+      this.$refs.updatesubnetModal.subnet.subnetgroup = this.currentnode.typeCategoryId;
+      this.$refs.updatesubnetModal.subnettypeList=this.$refs.updatesubnetModal.subnetgroupList[(this.currentnode.typeCategoryId)-1].subnetTypes;
+      this.$refs.updatesubnetModal.subnet.subnettype = this.currentnode.typeId;
+      this.$refs.updatesubnetModal.updatesubnetModal = true;
+    },
+    updateSubNet: function (name, remark) {
+      let newsubnet = { id: this.currentnode.id, name: name, remark: remark };
+      let param = {
+        input: {
+          subnet: newsubnet
+        }
+      };
+      topoService
+        .updateTopoSubNet(param)
+        .then(data => {
+          // this.scene.remove(this.currentnode);
+          // this.topo_addsubnet(data.output.subnet);
+          this.$emit("updateattr", "dbclick", "", "", "");
+          this.createScene(this.parentid);
+        })
+        .catch(error => {
+          console.log(error);
+          alert("updateSubNet,updateTopoSubNet: " + error);
+        });
+    },
+    // 删除子网
+    async menDeleteSubnet () {
+      let params = {
+        input: {
+          subnet: this.currentnode.id
+        }
+      };
+      let tunnelinfo = await sptnmanagersync.getTunnelUnderSubnet(params);
+      if (tunnelinfo.output.tunnelId != undefined) {
+        this.$Message.info("该子网下存在隧道,无法删除!");
+        return;
+      }
+
+      let param = {
+        input: {
+          id: this.currentnode.id
+        }
+      };
+      topoService
+        .deleteTopoSubNets(param)
+        .then(() => {
+          this.scene.remove(this.currentnode);
+          this.$emit("updateattr", "dbclick", "", "", "");
+        })
+        .catch(error => {
+          console.log(error);
+          alert("menDeleteSubnet,deleteTopoSubNets: " + error);
+        });
+    },
+    // 移动子网
+    menupdateSubNetParentId: function () {
+      this.$refs.updatesubnetparentModal.updatesubnetparentModal = true;
+      let subnettypeList = [{ value: "0", label: "物理拓扑" }];
+      let currentNode = this.stage.find("node");
+      currentNode.forEach(node => {
+        if (!node.isnet) {
+          if (node.id != this.currentnode.id) {
+            let newnode = { value: node.id.toString(), label: node.text };
+            subnettypeList.push(newnode);
+          }
+        }
+      });
+      this.$refs.updatesubnetparentModal.nodeinfoList = subnettypeList;
+    },
+    updateSubNetParent: function (subnettypevalue) {
+      let newnode = {
+        id: this.currentnode.id,
+        parentSubnetId: parseInt(subnettypevalue)
+      };
+      let param = {
+        input: {
+          subnet: newnode
+        }
+      };
+      topoService
+        .updateTopoSubNetParentId(param)
+        .then(data => {
+          this.scene.remove(this.currentnode);
+          this.$emit("updateattr", "dbclick", "", "", "");
+        })
+        .catch(error => {
+          console.log(error);
+          alert("updateSubNetParent,updateTopoSubNetParentId: " + error);
+        });
+    },
+    // 移动多个节点
+    menupdateNeListParentId: function () {
+      this.$refs.updatenodesParentModal.updatenodesParentModal = true;
+      let subnettypeList = [{ value: "0", label: "物理拓扑" }];
+      let currentNode = this.stage.find("node");
+      currentNode.forEach(node => {
+        if (!node.isnet) {
+          let newnode = { value: node.id.toString(), label: node.text };
+          subnettypeList.push(newnode);
+        }
+      });
+      this.$refs.updatenodesParentModal.nodeinfoList = subnettypeList;
+      this.$refs.updatenodesParentModal.currentnodelist = this.currentnodelist;
+    },
+    updateNodesParent: function (subnettypevalue) {
+      this.currentnodelist.forEach(node => {
+        if (node.isnet) {
+          let newnode = {
+            id: node.id,
+            parentSubnetId: parseInt(subnettypevalue)
+          };
+          let param = {
+            input: {
+              ne: newnode
+            }
+          };
+          topoService
+            .updateTopoNodeParentId(param)
+            .then(data => {
+              this.scene.remove(node);
+              this.$emit("updateattr", "dbclick", "", "", "");
+            })
+            .catch(error => {
+              console.log(error);
+              alert("updateNodesParent,updateTopoNodeParentId: " + error);
+            });
+        } else if (!node.isnet) {
+          let newnode = {
+            id: node.id,
+            parentSubnetId: parseInt(subnettypevalue)
+          };
+          let param = {
+            input: {
+              subnet: newnode
+            }
+          };
+          topoService
+            .updateTopoSubNetParentId(param)
+            .then(data => {
+              this.scene.remove(node);
+            })
+            .catch(error => {
+              console.log(error);
+              alert("updateNodesParent,updateTopoSubNetParentId: " + error);
+            });
+        }
+      });
+    },
+    
+
+    // 修改链路
+    menuUpdateTopoLink: function () {
+      this.$refs.insertlinkModal.title = "修改";
+      this.$refs.insertlinkModal.updateLink = true;
+      this.$refs.insertlinkModal.link.linkname = this.currentnode.text;
+      this.$refs.insertlinkModal.currentnodeID = this.currentnode.id.toString();
+      this.$refs.insertlinkModal.link.mark = this.currentnode.remark;
+      this.$refs.insertlinkModal.linkderection =
+        this.currentnode.uniDirectional + "";
+      this.$refs.insertlinkModal.linkderectionvalue =
+        this.currentnode.uniDirectional + "";
+      this.$refs.insertlinkModal.virtuallink = this.currentnode.virtual + "";
+      this.$refs.insertlinkModal.virtuallinkvalue =
+        this.currentnode.virtual + "";
+
+      let newnodea = [
+        {
+          value: this.currentnode.neIdA.toString(),
+          label: this.currentnode.neNameA
+        }
+      ];
+      this.$refs.insertlinkModal.nodeaList = newnodea;
+      this.$refs.insertlinkModal.nodea = this.currentnode.neIdA.toString();
+      // this.$refs.insertlinkModal.nodeavalue = this.currentnode.neIdA.toString();
+
+      let portalist = [
+        {
+          value: this.currentnode.portIdA.toString(),
+          label: this.currentnode.portNameA
+        }
+      ];
+      this.$refs.insertlinkModal.nodeaportList = portalist;
+      this.$refs.insertlinkModal.nodeaport = this.currentnode.portIdA.toString();
+
+      let portzlist = [
+        {
+          value: this.currentnode.portIdZ.toString(),
+          label: this.currentnode.portNameZ
+        }
+      ];
+      this.$refs.insertlinkModal.nodezportList = portzlist;
+      this.$refs.insertlinkModal.nodezport = this.currentnode.portIdZ.toString();
+
+      let newnodez = [
+        {
+          value: this.currentnode.neIdZ.toString(),
+          label: this.currentnode.neNameZ
+        }
+      ];
+      this.$refs.insertlinkModal.nodezList = newnodez;
+      this.$refs.insertlinkModal.nodez = this.currentnode.neIdZ.toString();
+
+      this.$refs.insertlinkModal.insertlinkModal = true;
+      // this.$refs.updatelinkModal.updatelinkModal = true;
+      // this.$refs.updatelinkModal.link.linkname = this.currentnode.text;
+      // this.$refs.updatelinkModal.link.mark = this.currentnode.remark;
+      // this.$refs.updatelinkModal.linkderection =
+      //   this.currentnode.uniDirectional + "";
+      // this.$refs.updatelinkModal.linkderectionvalue =
+      //   this.currentnode.uniDirectional + "";
+      // this.$refs.updatelinkModal.virtuallink = this.currentnode.virtual + "";
+      // this.$refs.updatelinkModal.virtuallinkvalue =
+      //   this.currentnode.virtual + "";
+    },
+    updateLink: function (linkname, virtuallinkvalue, linkderectionvalue, mark) {
+      let newlink = {
+        id: this.currentnode.id,
+        name: linkname,
+        uniDirectional: eval(linkderectionvalue),
+        virtual: eval(virtuallinkvalue),
+        remark: mark
+      };
+      let param = {
+        input: {
+          topolink: newlink
+        }
+      };
+      nodeService
+        .updateLink(param)
+        .then(data => {
+          // this.scene.remove(this.currentnode);
+          // this.topo_addlink(data.output.topolink);
+        })
+        .catch(error => {
+          console.log(error);
+          alert("updateLink,updateLink: " + error);
+        });
+    },
+    // 删除链路
+    menuDeleteTopoLink: function () {
+      let param = {
+        input: {
+          id: this.currentnode.id //这里的currentnode指链路，网元，子网，链路都为currentnode
+        }
+      };
+      nodeService
+        .deleteLink(param)
+        .then(() => {
+          this.scene.remove(this.currentnode);
+        })
+        .catch(error => {
+          console.log(error);
+          alert("menuDeleteTopoLink,deleteLink: " + error);
+        });
+    },
+    // 返回上层拓扑
+    menreturnupper: function () {
+      if (this.navpath.length > 1) {
+        this.createScene(this.navpath[this.navpath.length - 2].id);
+        this.nav_pop();
+      }
+    },
+    // 保存拓扑
+    mensaveTopo: function () {
+      let currentNode = this.stage.find("node");
+      currentNode.forEach(node => {
+        if (node.isnet) {
+          let newnode = {
+            id: node.id,
+            positionX: Math.round(node.x),
+            positionY: Math.round(node.y)
+          };
+          let param = {
+            input: {
+              ne: newnode
+            }
+          };
+          topoService
+            .updateTopoNodePosition(param)
+            .then(data => { })
+            .catch(error => {
+              console.log(error);
+              alert("mensaveTopo,updateTopoNodePosition: " + error);
+            });
+        } else if (!node.isnet) {
+          let newsubnet = {
+            id: node.id,
+            positionX: Math.round(node.x),
+            positionY: Math.round(node.y)
+          };
+          let param = {
+            input: {
+              subnet: newsubnet
+            }
+          };
+          topoService
+            .updateTopoSubNetPosition(param)
+            .then(data => { })
+            .catch(error => {
+              console.log(error);
+              alert("mensaveTopo,updateTopoSubNetPosition: " + error);
+            });
+        }
+      });
+    },
+    selectToolbar: function (key) {
+      switch (key) {
+        case 0:
+          this.svgToolbar[0].isActive = true;
+          this.svgToolbar[1].isActive = false;
+          this.stage.mode = "normal";
+          //this.stage.areaSelect = false;
+          break;
+        case 1:
+          this.svgToolbar[0].isActive = false;
+          this.svgToolbar[1].isActive = true;
+          this.stage.mode = "select";
+          //this.stage.areaSelect = true;
+          break;
+        case 2:
+          runPrefixMethod(this.stage.canvas, "RequestFullScreen");
+          break;
+        case 3:
+          this.svgToolbar[key].isActive = !this.svgToolbar[key].isActive;
+          if (this.svgToolbar[key].isActive) {
+            this.stage.wheelZoom = 1.2;
+          } else {
+            this.stage.wheelZoom = null;
+          }
+          break;
+        case 4:
+          this.stage.zoomOut();
+          break;
+        case 5:
+          this.stage.zoomIn();
+          break;
+        case 6:
+          this.stage.centerAndZoom();
+          break;
+        case 7:
+          this.stage.saveImageInfo();
+          break;
+        case 8:
+          // this.init_stage()
+          this.createScene(this.parentid);
+          break;
+        case 9:
+          if (this.navpath.length > 1) {
+            this.createScene(this.navpath[this.navpath.length - 2].id);
+            this.nav_pop();
+          }
+          break;
+        // case 10:
+        //   // this.topoMenuVisible = !this.topoMenuVisible;
+        //   // alert(this.topoMenuVisible);
+        //   break;
+        case 10:
+          this.svgToolbar[key].isActive = !this.svgToolbar[key].isActive;
+          this.showtopotree(this.svgToolbar[key].isActive);
+          this.canvasWidth = this.svgToolbar[key].isActive
+            ? this.canvasWidth - 158
+            : this.canvasWidth + 158;
+          break;
+        case 11:
+          this.svgToolbar[key].isActive = !this.svgToolbar[key].isActive;
+          this.showtopoattr(this.svgToolbar[key].isActive);
+          this.canvasWidth = this.svgToolbar[key].isActive
+            ? this.canvasWidth - 200
+            : this.canvasWidth + 200;
+          break;
+        case 12:
+          this.svgToolbar[key].isActive = !this.svgToolbar[key].isActive;
+          this.topoalarmshow = this.svgToolbar[key].isActive;
+          this.canvasHeight = this.svgToolbar[key].isActive
+            ? this.canvasHeight - 160
+            : this.canvasHeight + 160;
+          $(".canvas_content").css({ height: this.canvasHeight + "px" });
+          break;
+        default:
+          break;
+      }
+    },
+    showLinkName: function () {
+      this.showlinkname = !this.showlinkname;
+      this.createScene(this.parentid);
+    }
+  },
+  components: {
+    addnet_modal,
+    vTopoAlarm,
+    insertnetModal,
+    insertdiskModal,
+    deletediskModal,
+    insertsubnetModal,
+    updatenetModal,
+    updatesubnetModal,
+    insertlinkModal,
+    updatelinkModal,
+    updateneparentModal,
+    updatesubnetparentModal,
+    updatenodesParentModal,
+    channelmonitorModal,
+    importNetModal
+  },
+  computed: {
+    ...mapGetters("topostore", ["navpath"]),
+    ...mapGetters("topo", ["topNode", "topoLinks", "selectedObject", "alarmLevelInfo"]),
+    ...mapGetters("globalparams", [
+      "proxyUsername",
+      "proxyPassword",
+      "proxyServerip",
+      "proxyServerport",
+      "proxyToken"
+    ])
+  }
+};
+</script>
+<style lang="less">
+@theme-font-color: #525252;
+@theme-color: #f3f3f3;
+@border-color: #aaaaaa;
+
+.fa-upload:before {
+  content: "\F093";
+}
+/*svgHead工具栏*/
+.svgHead {
+  width: 100%;
+  min-width: 830px;
+  height: 24px;
+  box-sizing: border-box;
+  padding: 0 0px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: @theme-color;
+  border: solid @border-color;
+  border-width: 0px 0px 0px 0px;
+  margin-top: 2px;
+  margin-bottom: 2px;
+  //   box-shadow: inset 0 1px 0 0 #fff;
+  //  margin-bottom: 10px;
+  //border:solid 1px blue;
+  .svgHeadItemLst {
+    display: flex;
+    list-style-type: none;
+    .svgHeadItem {
+      padding: 3px 8px;
+      border: 1px solid @border-color;
+      cursor: pointer;
+      list-style: none;
+      border-left-width: 0;
+      &:hover {
+        background-color: #ebebeb;
+      }
+      &:first-child {
+        border-left-width: 1px;
+      }
+      &.active {
+        background-color: #ebebeb;
+        box-shadow: 2px 2px 1px #ccc inset;
+      }
+      .svgHeadItemImg {
+        background: url("../../assets/icons.png");
+        width: 16px;
+        height: 16px;
+        background-size: 479px 16px;
+        &.toolbar-default {
+          background-position: -16px 0px;
+        }
+        &.toolbar-rectangle_selection {
+          background-position: -262px 0px;
+        }
+        &.toolbar-fullScreen {
+          background-position: -362px 0px;
+        }
+        &.toolbar-mouseoutin {
+          background-position: -213px 0px;
+        }
+        &.toolbar-zoomin {
+          background-position: -377px 0px;
+        }
+        &.toolbar-zoomout {
+          background-position: -394px 0px;
+        }
+        &.toolbar-zoomreset {
+          background-position: -410px 0px;
+        }
+        &.toolbar-zoomexport {
+          background-position: -32px 0px;
+        }
+        &.toolbar-zoomrefresh {
+          background-position: -328px 0px;
+        }
+        &.toolbar-back {
+          background-position: -345px 0px;
+        }
+        &.toolbar-zoomsearch {
+          background-position: -311px 0px;
+        }
+        &.toolbar-topotree {
+          background-position: -428px 0px;
+        }
+        &.toolbar-topoattr {
+          background-position: -444px 0px;
+        }
+        &.toolbar-topoalarm {
+          background-position: -460px 0px;
+        }
+        &.toolbar-topoaddne {
+          background-position: 1px 0px;
+        }
+      }
+    }
+    .svgToolBarItem {
+      font-size: 13px;
+      color: #5d61e3;
+      padding: 5px 10px;
+      border-radius: 16px;
+      box-sizing: border-box;
+      margin-left: 5px;
+      cursor: pointer;
+      -webkit-user-select: none;
+      user-select: none;
+      border: 1px solid #5d61e3;
+      .svgToolBarTxt {
+        margin-left: 2px;
+      }
+    }
+  }
+}
+
+.jtopo_toolbar {
+  padding-left: 0px;
+  background-color: rgb(216, 231, 242);
+  width: 832px;
+  height: 28px;
+  padding-top: 0px;
+}
+
+.topoui_content {
+  margin-left: 0px;
+  padding: 0px;
+  box-shadow: #eee 2px 2px 2px 2px;
+  width: 100%;
+  min-width: 800px;
+  height: 100%;
+  overflow: auto;
+  border: solid 1px #cccccc;
+  //border:solid 1px blue;
+}
+.canvas_content {
+  width: 100%;
+  min-width: 875px;
+  min-height: 327px;
+  height: calc(~"100% - 188px");
+  display: block;
+  overflow: auto;
+  border: solid 0px red;
+}
+.topo_nav {
+  min-width: 411px;
+  margin-left: 0px;
+  text-align: left;
+  padding: 5px;
+  border: 0px solid red;
+  font-size: 12px;
+  //box-shadow: #eee 2px 2px 2px 2px;
+}
+.topo_nav .ivu-breadcrumb-item-link {
+  font-size: 12px;
+}
+
+.svgHeadItem div.ivu-select-dropdown {
+  /* background:#bab9fd; */
+  width: 100px;
+  margin: 0px;
+  padding: 0px;
+  border-radius: 0px;
+}
+.svgHeadItem li.ivu-dropdown-item {
+  text-align: center;
+  padding: 5px 15px 5px 15px;
+}
+.svgHeadItem li.ivu-dropdown-item:hover {
+  color: #ffffff;
+  background: #737bf8;
+}
+
+.menu {
+  width: 85px;
+  position: absolute;
+  background-color: white;
+  border-radius: 10px;
+  border: 1px solid #5d61e3;
+  list-style-type: none; // ul前面默认有.，设置none就是没有格式，把.去掉
+}
+.menuItem {
+  display: block;
+  text-align: center;
+  margin-top: 10px;
+  margin-bottom: 10px;
+  line-height: 20px;
+}
+li:hover {
+  background-color: #5d61e3;
+  cursor: pointer;
+  color: white;
+}
+#neInfo {
+  left: 428px;
+  position: absolute;
+  top: 214px;
+}
+#PingForm {
+  font-size: 9pt;
+  z-index: 11111;
+  left: 288px;
+  width: 280px;
+  color: silver;
+  position: absolute;
+  top: 184px;
+  height: 144px;
+  background-color: #000000;
+}
+#TracertForm {
+  font-size: 9pt;
+  z-index: 11112;
+  left: 598px;
+  width: 308px;
+  color: silver;
+  position: absolute;
+  top: 184px;
+  height: 200px;
+  background-color: #000000;
+}
+.tracertinfo {
+  display: inline;
+  z-index: 101;
+  left: 16px;
+  width: 292px;
+  position: absolute;
+  top: 17px;
+  user-select: none;
+  height: 182px;
+  overflow: auto;
+  text-align: left;
+  white-space: pre;
+}
+#tracert_img {
+  z-index: 106;
+  left: 292px;
+  width: 16px;
+  position: absolute;
+  top: 0px;
+  height: 16px;
+}
+#ping1 {
+  display: inline;
+  z-index: 101;
+  left: 16px;
+  width: 248px;
+  position: absolute;
+  top: 16px;
+  user-select: none;
+  text-align: left;
+}
+#ping2 {
+  display: inline;
+  z-index: 102;
+  left: 16px;
+  width: 248px;
+  position: absolute;
+  top: 40px;
+  user-select: none;
+  text-align: left;
+}
+#ping3 {
+  display: inline;
+  z-index: 103;
+  left: 16px;
+  width: 248px;
+  position: absolute;
+  top: 64px;
+  user-select: none;
+  text-align: left;
+}
+#ping4 {
+  display: inline;
+  z-index: 104;
+  left: 16px;
+  width: 248px;
+  position: absolute;
+  top: 88px;
+  user-select: none;
+  text-align: left;
+}
+#ping5 {
+  display: inline;
+  z-index: 105;
+  left: 16px;
+  width: 248px;
+  position: absolute;
+  top: 112px;
+  user-select: none;
+  text-align: left;
+}
+#ping_img {
+  z-index: 106;
+  left: 264px;
+  width: 16px;
+  position: absolute;
+  top: 0px;
+  height: 16px;
+}
+</style>

@@ -1,0 +1,2 @@
+D:\DC2020\project\src\odlclient\src\store\modules\globalparams.js
+urlPrefix = window.location.protocol + '//192.168.1.109:';
